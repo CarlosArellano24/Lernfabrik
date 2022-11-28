@@ -1,0 +1,235 @@
+﻿FUNCTION_BLOCK "FB_VacuumGripper"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      RefSwitchVerticalAxis : Bool;
+      RefSwitchHorizontalAxis : Bool;
+      RefSwitchRotate : Bool;
+      VerticalPos : DInt;
+      HorizontalPos : DInt;
+      RotatePos : DInt;
+   END_VAR
+
+   VAR_OUTPUT 
+      M1_VerticalAxisUp : Bool;
+      M1_VerticalAxisDown : Bool;
+      M2_HorizontalBackward : Bool;
+      M2_HorizontalForward : Bool;
+      M3_RotateClockwise : Bool;
+      M3_RotateCounterclockwise : Bool;
+      ValveVacuum : Bool;
+      Compressor : Bool;
+   END_VAR
+
+   VAR 
+      Step : Int;
+      CTRL_HSC_Vertical_Instance {InstructionName := 'CTRL_HSC'; LibVersion := '1.0'} : CTRL_HSC;
+      CTRL_HSC_Horizontal_Instance {InstructionName := 'CTRL_HSC'; LibVersion := '1.0'} : CTRL_HSC;
+      CTRL_HSC_Rotate_Instance {InstructionName := 'CTRL_HSC'; LibVersion := '1.0'} : CTRL_HSC;
+      IEC_Timer_VacuumOn {InstructionName := 'TON_TIME'; LibVersion := '1.0'} : TON_TIME;
+      IEC_Timer_VacuumOff {InstructionName := 'TON_TIME'; LibVersion := '1.0'} : TON_TIME;
+   END_VAR
+
+
+BEGIN
+	#Compressor := TRUE;
+	
+	#CTRL_HSC_Vertical_Instance(HSC := "Local~HSC_Vertical",
+	                            CV := #RefSwitchVerticalAxis,
+	                            NEW_CV := 0);
+	
+	#CTRL_HSC_Horizontal_Instance(HSC := "Local~HSC_Horizontal",
+	                              CV := #RefSwitchHorizontalAxis,
+	                              NEW_CV := 0);
+	
+	#CTRL_HSC_Rotate_Instance(HSC := "Local~HSC_Rotate",
+	                          CV := #RefSwitchRotate,
+	                          NEW_CV := 0);
+	
+	
+	CASE #Step OF
+	    0:
+	        RESET_TIMER(#IEC_Timer_VacuumOn);
+	        RESET_TIMER(#IEC_Timer_VacuumOff);
+	        
+	        #M1_VerticalAxisUp := TRUE;
+	        #M2_HorizontalBackward := TRUE;
+	        
+	        IF #RefSwitchVerticalAxis THEN
+	            #M1_VerticalAxisUp := FALSE;
+	        END_IF;
+	        
+	        IF #RefSwitchHorizontalAxis THEN
+	            #M2_HorizontalBackward := FALSE;
+	        END_IF;
+	        "MX_InititateVacuumSequence" := FALSE;
+	        IF #RefSwitchVerticalAxis AND #RefSwitchHorizontalAxis THEN
+	            #M3_RotateClockwise := TRUE;
+	        END_IF;
+	        IF #RefSwitchRotate THEN
+	            #M3_RotateClockwise := FALSE;
+	            #Step := #Step + 1;
+	        END_IF;
+	    1:
+	        IF #RotatePos < 6500 THEN
+	            #M3_RotateClockwise := FALSE;
+	            #M3_RotateCounterclockwise := TRUE;
+	        END_IF;
+	        IF #RotatePos > 6530 THEN
+	            #M3_RotateClockwise := TRUE;
+	            #M3_RotateCounterclockwise := FALSE;
+	        END_IF;
+	        IF #RotatePos > 6500 AND #RotatePos < 6540 THEN
+	            #M3_RotateClockwise := FALSE;
+	            #M3_RotateCounterclockwise := FALSE;
+	        END_IF;
+	        
+	        IF #HorizontalPos < 880 THEN
+	            #M2_HorizontalBackward := FALSE;
+	            #M2_HorizontalForward := TRUE;
+	        END_IF;
+	        IF #HorizontalPos > 920 THEN
+	            #M2_HorizontalBackward := TRUE;
+	            #M2_HorizontalForward := FALSE;
+	        END_IF;
+	        IF #HorizontalPos > 880 AND #HorizontalPos < 920 THEN
+	            #M2_HorizontalBackward := FALSE;
+	            #M2_HorizontalForward := FALSE;
+	        END_IF;
+	        
+	        IF #RotatePos > 6500 AND #RotatePos < 6540 AND
+	            #HorizontalPos > 880 AND #HorizontalPos < 920 THEN
+	            #M1_VerticalAxisDown := TRUE;
+	            IF #VerticalPos > 730 THEN
+	                #M1_VerticalAxisDown := FALSE;
+	                #Step := #Step + 1;
+	            END_IF;
+	        END_IF;
+	    2:
+	        #ValveVacuum := TRUE;
+	        #IEC_Timer_VacuumOn(IN := #ValveVacuum,
+	                            PT := T#500ms);
+	        IF #IEC_Timer_VacuumOn.Q THEN
+	            #M1_VerticalAxisUp := TRUE;
+	        END_IF;
+	        IF #RefSwitchVerticalAxis THEN
+	            #M1_VerticalAxisUp := FALSE;
+	            #Step := #Step + 1;
+	        END_IF;
+	    3:
+	        #ValveVacuum := TRUE;
+	        #M2_HorizontalBackward := TRUE;
+	        IF #RefSwitchHorizontalAxis THEN
+	            #M2_HorizontalBackward := FALSE;
+	            #Step := #Step + 1;
+	        END_IF;
+	    4:
+	        #M3_RotateClockwise := TRUE;
+	        IF #RotatePos < 5400 THEN
+	            #M3_RotateClockwise := FALSE;
+	            #Step := #Step + 1;
+	        END_IF;
+	    5:
+	        IF #RotatePos < 4300 THEN
+	            #M3_RotateClockwise := FALSE;
+	            #M3_RotateCounterclockwise := TRUE;
+	        END_IF;
+	        IF #RotatePos > 4300 THEN
+	            #M3_RotateClockwise := TRUE;
+	            #M3_RotateCounterclockwise := FALSE;
+	        END_IF;
+	        IF #RotatePos > 4280 AND #RotatePos < 4320 THEN
+	            #M3_RotateClockwise := FALSE;
+	            #M3_RotateCounterclockwise := FALSE;
+	        END_IF;
+	        
+	        IF #HorizontalPos < 4030 THEN
+	            #M2_HorizontalBackward := FALSE;
+	            #M2_HorizontalForward := TRUE;
+	        END_IF;
+	        IF #HorizontalPos > 4030 THEN
+	            #M2_HorizontalBackward := TRUE;
+	            #M2_HorizontalForward := FALSE;
+	        END_IF;
+	        IF #HorizontalPos > 4010 AND #HorizontalPos < 4050 THEN
+	            #M2_HorizontalBackward := FALSE;
+	            #M2_HorizontalForward := FALSE;
+	        END_IF;
+	        
+	        IF #RotatePos > 4280 AND #RotatePos < 4320 AND
+	            #HorizontalPos > 4010 AND #HorizontalPos < 4050 THEN
+	            #M1_VerticalAxisDown := TRUE;
+	            #Step := #Step + 1;
+	        END_IF;
+	        
+	    6:
+	        #M1_VerticalAxisDown := TRUE;
+	        #IEC_Timer_VacuumOff(IN:=(NOT #ValveVacuum),
+	                             PT:=T#1000ms);
+	        
+	        IF #VerticalPos > 2180 THEN
+	            #M1_VerticalAxisDown := FALSE;
+	            #ValveVacuum := FALSE;
+	            IF #IEC_Timer_VacuumOff.Q THEN
+	                #Step := #Step + 1;
+	            END_IF;
+	        END_IF;
+	    7:
+	        #M2_HorizontalBackward := TRUE;
+	        IF #RefSwitchHorizontalAxis THEN
+	            #M2_HorizontalBackward := FALSE;
+	            #Step := -1;
+	        END_IF;
+	    -1:
+	        IF "IX_START" THEN
+	            #Step := 0;
+	        END_IF;
+	        
+	        IF "DB_HMI_VGR".VerticalAxisUp AND NOT #RefSwitchVerticalAxis THEN
+	            #M1_VerticalAxisUp := TRUE;
+	        ELSE
+	            #M1_VerticalAxisUp := FALSE;
+	        END_IF;
+	        
+	        IF "DB_HMI_VGR".VerticalAxisDown THEN
+	            #M1_VerticalAxisDown := TRUE;
+	        ELSE
+	            #M1_VerticalAxisDown := FALSE;
+	        END_IF;
+	        
+	        IF "DB_HMI_VGR".HorizontalAxisBackward AND NOT #RefSwitchHorizontalAxis THEN
+	            #M2_HorizontalBackward := TRUE;
+	        ELSE
+	            #M2_HorizontalBackward := FALSE;
+	        END_IF;
+	        
+	        IF "DB_HMI_VGR".HorizontalAxisForward THEN
+	            #M2_HorizontalForward := TRUE;
+	        ELSE
+	            #M2_HorizontalForward := FALSE;
+	        END_IF;
+	        
+	        IF "DB_HMI_VGR".RotateCounterclockwise AND NOT #RefSwitchRotate THEN
+	            #M3_RotateClockwise := TRUE;
+	        ELSE
+	            #M3_RotateClockwise := FALSE;
+	        END_IF;
+	        
+	        IF "DB_HMI_VGR".RotateClockwise THEN
+	            #M3_RotateCounterclockwise := TRUE;
+	        ELSE
+	            #M3_RotateCounterclockwise := FALSE;
+	        END_IF;
+	        
+	        IF "DB_HMI_VGR".ValveVacuum THEN
+	            #ValveVacuum := TRUE;
+	        ELSE
+	            #ValveVacuum := FALSE;
+	        END_IF;
+	        
+	    ELSE  // Statement section ELSE
+	        ;
+	END_CASE;
+	
+END_FUNCTION_BLOCK
+

@@ -1,0 +1,101 @@
+﻿FUNCTION_BLOCK "FB_HighBay"
+{ S7_Optimized_Access := 'TRUE' }
+VERSION : 0.1
+   VAR_INPUT 
+      Start : Bool;
+      Stop : Bool;
+      RefSwitchHorizontalAxis : Bool;
+      RefSwitchVerticalAxis : Bool;
+      LightBarrierInside : Bool;
+      LightBarrierOutside : Bool;
+      SwitchCantileverFront : Bool;
+      SwitchCantileverBack : Bool;
+      PositionHorizontal : DInt;
+      PositionVertical : DInt;
+   END_VAR
+
+   VAR_OUTPUT 
+      PWM_ConveyorBelt : Int;
+      PWM_HorizontalAxis : Int;
+      PWM_VerticalAxis : Int;
+      PWM_Cantilever : Int;
+   END_VAR
+
+   VAR_IN_OUT 
+      M1_ConveyorBeltForward : Bool;
+      M1_ConveyorBeltBackward : Bool;
+      M2_HorizontalTowardsRack : Bool;
+      M2_HorizontalTowardsConveyorBelt : Bool;
+      M3_VerticalAxisDownward : Bool;
+      M3_VerticalAxisUpward : Bool;
+      M4_CantileverForward : Bool;
+      M4_CantileverBackward : Bool;
+   END_VAR
+
+   VAR 
+      Step : Bool;
+      CTRL_HSC_Vertical_Instance {InstructionName := 'CTRL_HSC'; LibVersion := '1.0'} : CTRL_HSC;
+      CTRL_HSC_Horizontal_Instance {InstructionName := 'CTRL_HSC'; LibVersion := '1.0'} : CTRL_HSC;
+   END_VAR
+
+
+BEGIN
+	IF "DB_HMI_HBW".VerticalAxisUp AND NOT #RefSwitchVerticalAxis THEN
+	    #M3_VerticalAxisUpward := TRUE;
+	ELSE
+	    #M3_VerticalAxisUpward := FALSE;
+	END_IF;
+	
+	
+	IF "DB_HMI_HBW".HorizontalAxisRight AND NOT #RefSwitchHorizontalAxis THEN
+	    #M2_HorizontalTowardsConveyorBelt := TRUE;
+	ELSE
+	    #M2_HorizontalTowardsConveyorBelt := FALSE;
+	END_IF;
+	
+	
+	IF "DB_HMI_HBW".VerticalAxisDown THEN
+	    #M3_VerticalAxisDownward := TRUE;
+	ELSE
+	    #M3_VerticalAxisDownward := FALSE;
+	END_IF;
+	
+	
+	IF "DB_HMI_HBW".HorizonalAxisLeft THEN
+	    #M2_HorizontalTowardsRack := TRUE;
+	ELSE
+	    #M2_HorizontalTowardsRack := FALSE;
+	END_IF;
+	
+	
+	IF "DB_HMI_HBW".CantileverIn AND NOT #SwitchCantileverBack THEN
+	    #M4_CantileverForward := TRUE;
+	ELSE
+	    #M4_CantileverForward := FALSE;
+	END_IF;
+	
+	IF "DB_HMI_HBW".CantileverOut AND NOT #SwitchCantileverFront THEN
+	    #M4_CantileverBackward := TRUE;
+	ELSE
+	    #M4_CantileverBackward := FALSE;
+	END_IF;
+	
+	IF NOT #LightBarrierInside THEN
+	    #M1_ConveyorBeltForward := TRUE;
+	END_IF;
+	
+	IF NOT #LightBarrierOutside THEN
+	    #M1_ConveyorBeltForward := FALSE;
+	END_IF;
+	
+	#CTRL_HSC_Vertical_Instance(HSC := "Local~HSC_Vertical",
+	                            CV := #RefSwitchVerticalAxis,
+	                            NEW_CV := 0);
+	#CTRL_HSC_Horizontal_Instance(HSC:="Local~HSC_Horizontal",
+	                         CV:=#RefSwitchHorizontalAxis,
+	                         NEW_CV:=0);
+	
+	
+	
+END_FUNCTION_BLOCK
+
